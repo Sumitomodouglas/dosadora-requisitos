@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dosadora – Requisitos mínimos aceitáveis</title>
+<style>
+  :root{
+    --background:#000000; --foreground:#FAFAFA; --card:#212121; --muted:#292929;
+    --muted-foreground:#A3A3A3; --secondary:#3D3D3D; --border:#292929;
+    --primary:#F5E400; --primary-foreground:#000000; --ring:#F5E400;
+    --destructive:#DA583E; --info:#1A5FC7; --success:#378B69; --warning:#F59F0A;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--background);color:var(--foreground);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;font-size:14px;line-height:1.45}
+  .page{max-width:1152px;margin:0 auto;padding:48px 24px}
+  h1{font-size:30px;font-weight:700;margin:0;letter-spacing:-.01em}
+  .bar{width:96px;height:4px;background:var(--primary);margin-top:12px}
+  .sub{color:var(--muted-foreground);margin:16px 0 0;max-width:760px}
+  .label{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted-foreground);font-weight:600}
+  .rules{display:grid;gap:16px;margin-top:40px}
+  @media(min-width:640px){.rules{grid-template-columns:1fr 1fr}}
+  .rule{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px 16px 16px 18px;position:relative}
+  .rule::before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:3px;background:var(--primary);border-radius:2px}
+  .rule p{margin:6px 0 0}
+  .rule .src{color:var(--muted-foreground);font-size:12px;margin-top:8px}
+
+  /* etapa do levantamento */
+  .stage{margin-top:32px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:20px 24px;
+    display:flex;flex-wrap:wrap;gap:24px;align-items:center;justify-content:space-between}
+  .stage.done{border-color:var(--success)}
+  .steps{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .step{display:flex;align-items:center;gap:10px}
+  .dot{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:13px;
+    border:1px solid var(--secondary);color:var(--muted-foreground);flex:none}
+  .step.cur .dot{background:var(--primary);color:var(--primary-foreground);border-color:var(--primary)}
+  .step.ok .dot{background:var(--success);color:#FAFAFA;border-color:var(--success)}
+  .step .t{font-weight:600}
+  .step .s{font-size:12px;color:var(--muted-foreground)}
+  .line{width:40px;height:1px;background:var(--secondary)}
+  .stage-info{font-size:13px;color:var(--muted-foreground);max-width:520px}
+  .stage-info strong{color:var(--foreground)}
+
+  .tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:32px}
+  @media(min-width:768px){.tiles{grid-template-columns:repeat(5,1fr)}}
+  .tile{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;cursor:pointer;text-align:left;color:inherit;font:inherit;height:auto;display:block;width:100%}
+  .tile:hover{border-color:var(--secondary)}
+  .tile.on{border-color:var(--primary)}
+  .tile .n{font-size:28px;font-weight:700;margin-top:4px}
+  .tile.alert .n{color:var(--destructive)}
+  .toolbar{display:flex;flex-wrap:wrap;gap:12px;margin-top:32px;align-items:center}
+  .toolbar .grow{flex:1 1 220px}
+  input,select,textarea{width:100%;background:var(--muted);color:var(--foreground);border:1px solid var(--border);
+    border-radius:6px;padding:7px 10px;font:inherit;font-size:16px;min-height:36px}
+  @media(min-width:768px){input,select,textarea{font-size:14px}}
+  textarea{min-height:72px;resize:vertical}
+  input:disabled,select:disabled,textarea:disabled{opacity:.75;cursor:default;color:var(--foreground)}
+  input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--ring);outline-offset:1px}
+  button{font:inherit;font-size:14px;font-weight:500;height:36px;padding:0 14px;border-radius:6px;border:1px solid transparent;cursor:pointer}
+  .btn-primary{background:var(--primary);color:var(--primary-foreground)}
+  .btn-secondary{background:var(--secondary);color:var(--foreground)}
+  .btn-ghost{background:transparent;color:var(--muted-foreground);border-color:var(--border)}
+  .btn-danger{background:transparent;color:var(--destructive);border-color:var(--destructive)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .layout{margin-top:24px}
+
+  .overlay{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:24px;
+    background:rgba(0,0,0,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+    opacity:0;visibility:hidden;transition:opacity .18s ease,visibility .18s}
+  .overlay.open{opacity:1;visibility:visible}
+  .overlay .panel{width:100%;max-width:640px;max-height:calc(100vh - 48px);overflow:auto;transform:translateY(12px) scale(.98);transition:transform .18s ease}
+  .overlay.open .panel{transform:none}
+  body.modal-open{overflow:hidden}
+  .page.dim{filter:blur(2px)}
+  .panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+  .x{width:36px;padding:0;background:transparent;color:var(--muted-foreground);border:1px solid var(--border);font-size:18px;line-height:1;flex:none}
+
+  .list{display:grid;gap:12px}
+  .item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;cursor:pointer}
+  .item:hover{border-color:var(--secondary)}
+  .item.sel{border-color:var(--primary)}
+  .item.comp{margin-left:32px;border-left:3px solid var(--secondary)}
+  .item-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .code{font-weight:700;color:var(--muted-foreground);font-size:12px}
+  .item h3{margin:6px 0 4px;font-size:15px}
+  .item .why{color:var(--muted-foreground);margin:6px 0 0}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;border:1px solid}
+  .chip::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+  .c-obr{color:#8DB4F0;border-color:var(--info);background:rgba(26,95,199,.15)}
+  .c-mao{color:var(--warning);border-color:var(--warning);background:rgba(245,159,10,.12)}
+  .c-ana{color:var(--muted-foreground);border-color:var(--secondary);background:transparent}
+  .c-ok{color:#6FCB9F;border-color:var(--success);background:rgba(55,139,105,.15)}
+  .c-bad{color:var(--destructive);border-color:var(--destructive);background:rgba(218,88,62,.12)}
+  .c-neu{color:var(--muted-foreground);border-color:var(--border)}
+  .rev{font-size:12px;font-weight:700;color:var(--foreground);background:var(--secondary);border-radius:4px;padding:1px 6px}
+  .missing{color:var(--destructive);font-weight:600}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:24px}
+  .panel h2{margin:0;font-size:18px}
+  fieldset{border:0;padding:0;margin:24px 0 0;display:grid;gap:16px}
+  legend{padding:0;margin-bottom:12px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--primary);font-weight:700}
+  .f{display:grid;gap:6px}
+  .f .hint{font-size:12px;color:var(--muted-foreground)}
+  .req::after{content:" *";color:var(--primary)}
+  .two{display:grid;gap:16px}
+  @media(min-width:640px){.two{grid-template-columns:1fr 1fr}}
+  .seg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .seg label{border:1px solid var(--border);background:var(--muted);border-radius:6px;padding:10px 8px;text-align:center;cursor:pointer;font-weight:500;font-size:13px}
+  .seg input{position:absolute;opacity:0;width:1px;height:1px;min-height:0}
+  .seg label:has(input:checked){border-color:var(--primary);background:var(--secondary)}
+  .seg label:has(input:focus-visible){outline:2px solid var(--ring)}
+  .seg label:has(input:disabled){cursor:default}
+  .checks{display:grid;gap:6px}
+  .checks label{display:flex;gap:8px;align-items:center;cursor:pointer}
+  .checks input{width:16px;height:16px;min-height:0;accent-color:var(--primary);flex:none}
+  .err{color:var(--destructive);font-size:12px;display:none}
+  .f.invalid .err{display:block}
+  .f.invalid input,.f.invalid textarea,.f.invalid select{border-color:var(--destructive)}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:24px}
+  .actions .sp{flex:1}
+  .note{font-size:12px;color:var(--muted-foreground);margin-top:12px}
+  .callout{margin-top:16px;border-radius:6px;padding:10px 12px;font-size:13px;border:1px solid}
+  .callout.lock{border-color:var(--success);color:#6FCB9F;background:rgba(55,139,105,.1)}
+  .callout.link{border-color:var(--info);color:#8DB4F0;background:rgba(26,95,199,.1)}
+  .callout.warn{border-color:var(--warning);color:var(--warning);background:rgba(245,159,10,.08)}
+  .banner{margin-top:24px;border:1px solid var(--warning);color:var(--warning);border-radius:8px;padding:10px 14px;display:none}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--secondary);color:var(--foreground);
+    padding:10px 16px;border-radius:6px;display:none;z-index:40}
+  .confirm{display:none;margin-top:12px;border:1px solid var(--destructive);border-radius:6px;padding:12px}
+  .empty{color:var(--muted-foreground);padding:24px;text-align:center;border:1px dashed var(--border);border-radius:8px}
+
+  details.hist{margin-top:24px;border-top:1px solid var(--border);padding-top:16px}
+  details.hist summary{cursor:pointer;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--primary);font-weight:700}
+  .hrow{border-left:2px solid var(--secondary);padding:4px 0 4px 12px;margin-top:12px}
+  .hrow .hh{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted-foreground)}
+  .hrow .hm{margin-top:4px}
+  .hrow ul{margin:6px 0 0;padding-left:18px;font-size:12px;color:var(--muted-foreground)}
+  .hrow li span.de{text-decoration:line-through;opacity:.8}
+
+  .pre{display:grid;gap:8px;margin-top:16px}
+  .pre .pi{display:flex;gap:10px;align-items:flex-start;font-size:13px}
+  .pre .mk{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;flex:none}
+  .pre .ok .mk{background:var(--success);color:#FAFAFA}
+  .pre .no .mk{background:var(--destructive);color:#FAFAFA}
+  .pre .no{color:var(--foreground)}
+  .audit{margin-top:48px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:24px}
+  .audit h2{margin:4px 0 0;font-size:18px}
+  .audit-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+  .tabs{display:flex;gap:8px;margin-top:20px;border-bottom:1px solid var(--border)}
+  .tabs button{background:transparent;color:var(--muted-foreground);border:0;border-bottom:2px solid transparent;border-radius:0;padding:0 4px;margin-right:12px}
+  .tabs button.on{color:var(--foreground);border-bottom-color:var(--primary)}
+  .tbl-wrap{overflow-x:auto;margin-top:16px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted-foreground);font-weight:600;text-align:left;padding:8px;border-bottom:1px solid var(--secondary);white-space:nowrap}
+  td{padding:8px;border-bottom:1px solid var(--border);vertical-align:top}
+  td.nw{white-space:nowrap}
+  td .em{display:block;font-size:12px;color:var(--muted-foreground)}
+  footer{margin-top:48px;border-top:1px solid var(--border);padding-top:16px;color:var(--muted-foreground);font-size:12px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+  .hidden{display:none!important}
+  .gate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .gate .panel{width:100%;max-width:420px}
+  .gate h1{font-size:24px}
+  .gate p{color:var(--muted-foreground);margin:12px 0 0}
+  .gate form{display:grid;gap:16px;margin-top:24px}
+  .gate .code-input{letter-spacing:.4em;font-size:20px;text-align:center;font-weight:700}
+  .gate .msg{font-size:13px;min-height:18px}
+  .gate .msg.err{display:block;color:var(--destructive)}
+  .gate .msg.ok{color:#6FCB9F}
+  .userbar{display:flex;justify-content:flex-end;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:24px;font-size:13px;color:var(--muted-foreground)}
+  .userbar strong{color:var(--foreground)}
+  .userbar button{height:30px;font-size:13px}
+  .role{font-size:12px;font-weight:700;color:var(--primary-foreground);background:var(--primary);border-radius:4px;padding:1px 6px;text-transform:uppercase}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+
+<!-- Login por código enviado ao e-mail -->
+<div class="gate hidden" id="gate">
+  <div class="panel">
+    <div class="label">Projeto Dosadora de Químicos</div>
+    <h1 style="margin-top:8px">Requisitos mínimos aceitáveis</h1>
+    <div class="bar"></div>
+    <div id="g-step1">
+      <p>Informe seu e-mail corporativo. Vamos enviar um código de acesso.</p>
+      <form id="g-form1" novalidate>
+        <div class="f"><label class="label" for="g-email">E-mail</label>
+          <input id="g-email" type="email" autocomplete="email" placeholder="nome.sobrenome@empresa.com.br" required></div>
+        <button class="btn-primary" type="submit" id="g-send">Enviar código</button>
+        <div class="msg" id="g-msg1" role="status"></div>
+      </form>
+    </div>
+    <div id="g-step2" class="hidden">
+      <p>Enviamos um e-mail para <strong id="g-to" style="color:var(--foreground)"></strong>. Digite o código abaixo ou, se o e-mail trouxer um link de acesso, basta clicar nele neste mesmo navegador.</p>
+      <form id="g-form2" novalidate>
+        <div class="f"><label class="label" for="g-code">Código</label>
+          <input id="g-code" class="code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="••••••"></div>
+        <button class="btn-primary" type="submit" id="g-verify">Entrar</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-ghost" type="button" id="g-back">Trocar e-mail</button>
+          <button class="btn-ghost" type="button" id="g-resend">Reenviar código</button>
+        </div>
+        <div class="msg" id="g-msg2" role="status"></div>
+      </form>
+    </div>
+    <div id="g-denied" class="hidden">
+      <p class="missing" style="margin-top:16px">O e-mail <span id="g-denied-email"></span> não está autorizado a acessar este levantamento.</p>
+      <p>Peça ao responsável pelo projeto na TI para incluir seu e-mail na lista de participantes.</p>
+      <div class="actions"><button class="btn-secondary" type="button" id="g-out">Sair e usar outro e-mail</button></div>
+    </div>
+    <div class="msg" id="g-cfg" style="margin-top:16px"></div>
+  </div>
+</div>
+
+<div class="page hidden" id="app">
+  <div class="userbar">
+    <span>Conectado como <strong id="u-name"></strong> <span id="u-email"></span></span>
+    <span class="role" id="u-role"></span>
+    <button class="btn-ghost" id="u-out">Sair</button>
+  </div>
+  <header>
+    <div class="label">Projeto Dosadora de Químicos · TI × Engenharia</div>
+    <h1 style="margin-top:8px">Requisitos mínimos aceitáveis</h1>
+    <div class="bar"></div>
+    <p class="sub">Para cada requisito, a Engenharia registra o mínimo aceitável e decide: <strong>é obrigatório</strong> (e por quê) ou <strong>podemos abrir mão</strong> (por quê, como o risco é mitigado e quem o assume). Toda alteração gera uma revisão até o término do levantamento. Itens sem justificativa aparecem como <span class="missing">a levantar</span>.</p>
+  </header>
+
+  <section class="rules" aria-label="Regras acordadas">
+    <div class="rule">
+      <div class="label">Regra acordada · memórias do CLP</div>
+      <p>Memória informada como controlável será implementada e não será retirada depois. Se não funcionar via CLP, a manutenção, o PT ou mão de obra contratada resolve; o projeto não será reaberto. O que ficar fora do escopo vira melhoria.</p>
+      <div class="src">Ata de 13/11/2026 · decisões 3 e 4</div>
+    </div>
+    <div class="rule">
+      <div class="label">Regra acordada · riscos sem controle sistêmico</div>
+      <p>Abrir mão de um controle exige responsável e plano de mitigação. Sem validação sistêmica do peso, a área assume formalmente a responsabilidade. Objetivo: reduzir o índice de risco do FMEA.</p>
+      <div class="src">Ata de 13/11/2026 · decisões 5 e 6</div>
+    </div>
+  </section>
+
+  <section class="stage" id="stage" aria-label="Etapa do levantamento">
+    <div class="steps">
+      <div class="step" id="st1"><div class="dot">1</div><div><div class="t">Levantamento e revisão</div><div class="s">Edição com controle de revisão</div></div></div>
+      <div class="line"></div>
+      <div class="step" id="st2"><div class="dot">2</div><div><div class="t">Término do levantamento</div><div class="s">Feito pela Engenharia (PT)</div></div></div>
+    </div>
+    <div class="stage-info" id="stage-info"></div>
+    <button class="btn-primary" id="fin-open">Finalizar levantamento</button>
+  </section>
+
+  <div class="banner" id="banner"></div>
+
+  <section class="tiles" aria-label="Resumo">
+    <button class="tile" data-f="">           <div class="label">Total</div><div class="n" id="t-all">0</div></button>
+    <button class="tile" data-f="obrigatorio"><div class="label">Obrigatórios</div><div class="n" id="t-obr">0</div></button>
+    <button class="tile" data-f="abrir_mao">  <div class="label">Abrimos mão</div><div class="n" id="t-mao">0</div></button>
+    <button class="tile" data-f="em_analise"> <div class="label">Em análise</div><div class="n" id="t-ana">0</div></button>
+    <button class="tile alert" data-f="pend"> <div class="label">Sem justificativa</div><div class="n" id="t-pend">0</div></button>
+  </section>
+
+  <div class="toolbar">
+    <div class="grow"><input id="q" type="search" placeholder="Buscar por código, título ou justificativa" aria-label="Buscar"></div>
+    <div style="flex:0 1 220px"><select id="fcat" aria-label="Filtrar por categoria"><option value="">Todas as categorias</option></select></div>
+    <div style="flex:0 1 200px"><select id="fval" aria-label="Filtrar por validação"><option value="">Toda validação</option><option>Pendente</option><option>Validado</option><option>Contestado</option></select></div>
+    <button class="btn-secondary" id="copy">Copiar tabela</button>
+    <button class="btn-primary" id="new">+ Novo requisito</button>
+  </div>
+
+  <div class="layout">
+    <section>
+      <div class="list" id="list"></div>
+    </section>
+  </div>
+
+  <section class="audit hidden" id="audit" aria-label="Auditoria">
+    <div class="audit-head">
+      <div>
+        <div class="label">Visível só para administradores</div>
+        <h2>Auditoria e backup</h2>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn-secondary hidden" id="bk-csv">Exportar planilha (CSV)</button>
+        <button class="btn-secondary hidden" id="bk-json">Baixar backup completo (JSON)</button>
+      </div>
+    </div>
+    <div class="tabs" role="tablist">
+      <button class="on" data-tab="atv" role="tab">Atividade</button>
+      <button data-tab="acs" role="tab">Acessos</button>
+    </div>
+    <div class="tbl-wrap" id="tab-atv"><table><thead><tr><th>Quando</th><th>Quem</th><th>Ação</th><th>Item</th><th>Motivo / detalhe</th></tr></thead><tbody id="atv-body"></tbody></table></div>
+    <div class="tbl-wrap hidden" id="tab-acs"><table><thead><tr><th>Quem</th><th>Primeiro acesso</th><th>Último acesso</th><th>Visitas</th></tr></thead><tbody id="acs-body"></tbody></table></div>
+  </section>
+
+  <footer>
+    <span>Projeto Dosadora de Químicos · TI SRB · base: ata de 13/11/2026</span>
+    <span>Classificação: uso interno (confirmar)</span>
+  </footer>
+</div>
+
+<!-- Formulário do requisito -->
+<div class="overlay" id="overlay" aria-hidden="true">
+  <div class="panel" id="panel" role="dialog" aria-modal="true" aria-labelledby="f-title">
+    <form id="form" novalidate>
+      <div class="panel-head">
+        <div>
+          <div class="label" id="f-mode">Novo requisito</div>
+          <h2 id="f-title" style="margin-top:4px">Preencha o requisito</h2>
+        </div>
+        <button type="button" class="x" id="close" aria-label="Fechar">×</button>
+      </div>
+      <div class="callout lock hidden" id="f-lock"></div>
+      <div class="callout warn hidden" id="f-conflict"></div>
+      <div class="callout link hidden" id="f-link"></div>
+
+      <fieldset>
+        <legend>1 · Identificação</legend>
+        <div class="f" data-k="titulo"><label class="label req" for="titulo">Requisito</label>
+          <input id="titulo" name="titulo" placeholder="Ex.: Detectar porta do hopper aberta">
+          <div class="err">Informe o requisito.</div></div>
+        <div class="two">
+          <div class="f"><label class="label" for="categoria">Categoria</label><select id="categoria" name="categoria"></select></div>
+          <div class="f"><label class="label" for="origem">Origem</label><input id="origem" name="origem" placeholder="Ex.: Ata 13/11/2026"></div>
+        </div>
+        <div class="f"><label class="label" for="descricao">Descrição</label>
+          <textarea id="descricao" name="descricao" placeholder="O que o sistema ou o processo precisa fazer"></textarea></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>2 · Viabilidade técnica</legend>
+        <div class="f"><label class="label" for="viabilidade">Sinal / memória no CLP</label>
+          <select id="viabilidade" name="viabilidade">
+            <option>A confirmar via OPC</option>
+            <option>Ausente no mapa do CLP – confirmar via OPC</option>
+            <option>Confirmada via OPC</option>
+            <option>Não depende do CLP</option>
+          </select>
+          <span class="hint">Memória confirmada como controlável entra no escopo e não sai depois.</span></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>3 · Decisão da Engenharia</legend>
+        <div class="f" data-k="minimo"><label class="label req" for="minimo">Mínimo aceitável</label>
+          <textarea id="minimo" name="minimo" placeholder="Qual o critério mínimo para aceitar a entrega? Ex.: bloquear o pacote fora da tolerância"></textarea>
+          <div class="err">Descreva o mínimo aceitável.</div></div>
+        <div class="f"><span class="label req">Classificação</span>
+          <div class="seg" role="radiogroup" aria-label="Classificação">
+            <label><input type="radio" name="decisao" value="obrigatorio"><span>Obrigatório</span></label>
+            <label><input type="radio" name="decisao" value="abrir_mao"><span>Abrimos mão</span></label>
+            <label><input type="radio" name="decisao" value="em_analise" checked><span>Em análise</span></label>
+          </div></div>
+
+        <div id="g-obr" class="hidden" style="display:grid;gap:16px">
+          <div class="f" data-k="porqueObr"><label class="label req" for="porqueObr">Por que precisa ser atendido?</label>
+            <textarea id="porqueObr" name="porqueObr" placeholder="Norma, segurança, qualidade, rastreabilidade, exigência do cliente..."></textarea>
+            <div class="err">Justifique por que é obrigatório.</div></div>
+          <div class="f"><label class="label" for="impacto">O que acontece se não for atendido?</label>
+            <textarea id="impacto" name="impacto" placeholder="Ex.: mistura de produtos, pacote fora do peso"></textarea></div>
+        </div>
+
+        <div id="g-mao" class="hidden" style="display:grid;gap:16px">
+          <div class="f" data-k="porqueMao"><label class="label req" for="porqueMao">Por que podemos abrir mão?</label>
+            <textarea id="porqueMao" name="porqueMao" placeholder="Ex.: sinal não existe no CLP; risco coberto por procedimento"></textarea>
+            <div class="err">Justifique por que podemos abrir mão.</div></div>
+          <div class="f" data-k="mitig"><span class="label req">Como o risco será mitigado?</span>
+            <div class="checks" id="mitig">
+              <label><input type="checkbox" value="Treinamento"> Treinamento</label>
+              <label><input type="checkbox" value="Um produto por vez na linha"> Um produto por vez na linha</label>
+              <label><input type="checkbox" value="Câmera"> Câmera</label>
+              <label><input type="checkbox" value="Conferência manual pelo operador"> Conferência manual pelo operador</label>
+            </div>
+            <input id="mitigOutro" name="mitigOutro" placeholder="Outra mitigação (opcional)">
+            <div class="err">Marque ou descreva ao menos uma mitigação.</div></div>
+          <div class="two">
+            <div class="f" data-k="donoRisco"><label class="label req" for="donoRisco">Quem assume o risco?</label>
+              <select id="donoRisco" name="donoRisco"><option value="">Selecione</option></select>
+              <div class="err">Defina quem assume o risco.</div></div>
+            <div class="f"><label class="label" for="tratamento">Tratar depois como</label>
+              <select id="tratamento" name="tratamento"><option>Melhoria futura</option><option>Não será tratado</option></select></div>
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>4 · Responsável e validação</legend>
+        <div class="two">
+          <div class="f"><label class="label" for="area">Área responsável</label><select id="area" name="area"><option value="">A definir</option></select></div>
+          <div class="f"><label class="label" for="responsavel">Nome</label><input id="responsavel" name="responsavel" placeholder="A definir"></div>
+        </div>
+        <div class="f"><label class="label" for="validacao">Validação</label>
+          <select id="validacao" name="validacao"><option>Pendente</option><option>Validado</option><option>Contestado</option></select></div>
+        <div class="f"><label class="label" for="comentario">Comentário</label>
+          <textarea id="comentario" name="comentario" placeholder="Pontos a discutir na reunião de validação"></textarea></div>
+      </fieldset>
+
+      <fieldset id="g-motivo" class="hidden">
+        <legend>5 · Revisão</legend>
+        <div class="f" data-k="motivo"><label class="label req" for="motivo">Motivo da revisão</label>
+          <textarea id="motivo" name="motivo" placeholder="O que mudou e por quê. Ex.: validado em reunião com a Engenharia em 25/11"></textarea>
+          <div class="err">Informe o motivo da revisão.</div></div>
+      </fieldset>
+
+      <div class="actions">
+        <button type="submit" class="btn-primary" id="save">Salvar</button>
+        <button type="button" class="btn-ghost" id="cancel">Cancelar</button>
+        <button type="button" class="btn-secondary hidden" id="add-comp">+ Vincular complemento</button>
+        <span class="sp"></span>
+        <button type="button" class="btn-danger hidden" id="del">Excluir</button>
+      </div>
+      <div class="confirm" id="confirm">
+        <div>Excluir <strong id="c-code"></strong>? A exclusão fica registrada no histórico de revisões.</div>
+        <div class="f" data-k="cmotivo" style="margin-top:12px"><label class="label req" for="c-motivo">Motivo da exclusão</label>
+          <textarea id="c-motivo" placeholder="Por que este requisito sai do levantamento"></textarea>
+          <div class="err">Informe o motivo da exclusão.</div></div>
+        <div class="actions" style="margin-top:12px">
+          <button type="button" class="btn-danger" id="c-yes">Excluir</button>
+          <button type="button" class="btn-ghost" id="c-no">Manter</button>
+        </div>
+      </div>
+      <div class="note" id="f-meta"></div>
+
+      <details class="hist hidden" id="hist">
+        <summary>Histórico de revisões</summary>
+        <div id="hist-list"></div>
+      </details>
+    </form>
+  </div>
+</div>
+
+<!-- Término do levantamento -->
+<div class="overlay" id="ov-fin" aria-hidden="true">
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="fin-title">
+    <div class="panel-head">
+      <div>
+        <div class="label">Etapa 2 · Engenharia (PT)</div>
+        <h2 id="fin-title" style="margin-top:4px">Término do levantamento</h2>
+      </div>
+      <button type="button" class="x" id="fin-close" aria-label="Fechar">×</button>
+    </div>
+    <div class="callout warn">Depois de finalizado, nenhum requisito poderá ser editado nem excluído. Só será possível vincular complementos a requisitos existentes, e cada complemento também fica bloqueado assim que for salvo.</div>
+    <div class="label" style="margin-top:24px">Condições para finalizar</div>
+    <div class="pre" id="fin-pre"></div>
+    <fieldset>
+      <div class="f" data-k="fnome"><label class="label req" for="fin-nome">Responsável pela finalização (Engenharia – PT)</label>
+        <input id="fin-nome" placeholder="Nome completo">
+        <div class="err">Informe o responsável.</div></div>
+      <div class="f"><label class="label" for="fin-obs">Observação</label>
+        <textarea id="fin-obs" placeholder="Ex.: revisado em reunião de 25/11 com Engenharia, Produção e TI"></textarea></div>
+      <div class="checks"><label><input type="checkbox" id="fin-ok"> Confirmo, em nome da Engenharia (PT), que os requisitos foram revisados e que, após a finalização, não poderão mais ser editados nem excluídos.</label></div>
+    </fieldset>
+    <div class="actions">
+      <button type="button" class="btn-primary" id="fin-go" disabled>Finalizar levantamento</button>
+      <button type="button" class="btn-ghost" id="fin-cancel">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* =====================================================================
+   CONFIGURAÇÃO — preencha com os dados do seu projeto Supabase
+   (Project Settings → API). Use a chave "anon public", NUNCA a
+   "service_role": esta página fica visível para quem a abrir.
+   ===================================================================== */
+const SUPABASE_URL      = "https://nbojjnwqsfztfgigdzhf.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ib2pqbndxc2Z6dGZnaWdkemhmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU0NTkxNTgsImV4cCI6MjExMTAzNTE1OH0.uclUaERn5yVhXTSTwjIutJDLg-_eeGTQrsLnjeLBLvA";
+
+/* ===================================================================== */
+const CATS=["Pesagem e qualidade","Segurança de processo","Integração CLP / OPC","Regras de negócio","Rastreabilidade","Infraestrutura e licenças","Operação e interface","Outro"];
+const AREAS=["Engenharia","Produção","PT","Manutenção","Qualidade","TI","Compartilhado"];
+const DEC={obrigatorio:["Obrigatório","c-obr"],abrir_mao:["Abrimos mão","c-mao"],em_analise:["Em análise","c-ana"]};
+const VAL={Pendente:"c-neu",Validado:"c-ok",Contestado:"c-bad"};
+const PAPEL={editor:"Editor",pt:"Engenharia – PT",admin:"Administrador"};
+/* campo do formulário  <->  coluna no banco */
+const COLS={titulo:"titulo",categoria:"categoria",origem:"origem",descricao:"descricao",viabilidade:"viabilidade",minimo:"minimo",decisao:"decisao",
+  porqueObr:"porque_obr",impacto:"impacto",porqueMao:"porque_mao",mitigacao:"mitigacao",mitigOutro:"mitigacao_outro",donoRisco:"dono_risco",
+  tratamento:"tratamento",area:"area",responsavel:"responsavel",validacao:"validacao",comentario:"comentario"};
+const LABELS={titulo:"Requisito",categoria:"Categoria",origem:"Origem",descricao:"Descrição",viabilidade:"Sinal no CLP",minimo:"Mínimo aceitável",
+  decisao:"Classificação",porque_obr:"Por que é obrigatório",impacto:"Impacto se não atendido",porque_mao:"Por que abrimos mão",mitigacao:"Mitigação",
+  mitigacao_outro:"Outra mitigação",dono_risco:"Quem assume o risco",tratamento:"Tratar depois como",area:"Área responsável",responsavel:"Nome do responsável",
+  validacao:"Validação",comentario:"Comentário"};
+const $=s=>document.querySelector(s);
+let sb=null,me={email:"",papel:null},rows=[],revs=[],ctrl=null,pessoas={},acessos=[];
+let sel=null,parentFor=null,tileF="",dirty=false,loadedRev=null,discardArmed=0,auditTab="atv",channel=null,pollT=null;
+
+function fill(id,arr){const s=$(id);arr.forEach(v=>{const o=document.createElement("option");o.textContent=v;s.appendChild(o)})}
+fill("#categoria",CATS);fill("#fcat",CATS);fill("#donoRisco",AREAS);fill("#area",AREAS);
+
+function toast(m){const t=$("#toast");t.textContent=m;t.style.display="block";clearTimeout(toast._);toast._=setTimeout(()=>t.style.display="none",3200)}
+function banner(m){const b=$("#banner");if(!m){b.style.display="none";return}b.textContent=m;b.style.display="block"}
+const errMsg=e=>(e&&(e.message||e.error_description||e.msg))||"Erro inesperado.";
+const finalized=()=>!!(ctrl&&ctrl.status==="finalizado");
+const isAdmin=()=>me.papel==="admin";
+const canFinalize=()=>me.papel==="pt"||me.papel==="admin";
+const ms=t=>t?Date.parse(t):null;
+const fmt=t=>t?new Date(t).toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"}):"";
+const rv=n=>"Rev. "+String(n||0).padStart(2,"0");
+const nm=e=>(e&&pessoas[e]&&pessoas[e].nome)||"";
+const who=e=>{if(!e)return"—";const n=nm(e);return n?n+" ("+e+")":e};
+function justif(r){return r.decisao==="obrigatorio"?r.porqueObr:r.decisao==="abrir_mao"?r.porqueMao:""}
+function pending(r){
+  if(r.decisao==="em_analise"||!r.decisao) return true;
+  if(!(r.minimo||"").trim()||!(justif(r)||"").trim()) return true;
+  if(r.decisao==="abrir_mao"&&(!r.donoRisco||!((r.mitigacao||[]).length||(r.mitigOutro||"").trim()))) return true;
+  return false;
+}
+function sk(c){const m=/REQ-(\d+)(?:\.C(\d+))?/.exec(c||"");return m?(+m[1])*1000+(m[2]?+m[2]:0):999999}
+const byId=id=>rows.find(r=>r.id===id);
+const kids=id=>rows.filter(r=>r.complementoDe===id);
+
+/* ---------- conversão banco <-> página ---------- */
+function fromDb(x){
+  const r={id:x.id,codigo:x.codigo,rev:x.rev,complementoDe:x.complemento_de,posFinalizacao:x.pos_finalizacao,
+    criadoEm:ms(x.criado_em),criadoPor:x.criado_por,atualizadoEm:ms(x.atualizado_em),atualizadoPor:x.atualizado_por};
+  Object.entries(COLS).forEach(([k,c])=>r[k]=x[c]);r.mitigacao=r.mitigacao||[];return r;
+}
+function toDb(d){const o={};Object.entries(COLS).forEach(([k,c])=>{let v=d[k];if(k!=="mitigacao"&&v==="")v=null;o[c]=v});return o}
+function revFromDb(x){return{id:x.id,reqId:x.requisito_id,codigo:x.codigo,rev:x.rev,tipo:x.tipo,motivo:x.motivo,alteracoes:x.alteracoes||[],estado:x.estado,por:x.por,em:ms(x.em)}}
+
+/* ---------- carga de dados ---------- */
+async function loadReqs(){const {data,error}=await sb.from("requisitos").select("*");if(error)throw error;rows=data.map(fromDb)}
+async function loadRevs(){const {data,error}=await sb.from("revisoes").select("*").order("id");if(error)throw error;revs=data.map(revFromDb)}
+async function loadCtrl(){const {data,error}=await sb.from("levantamento").select("*").eq("id",1).maybeSingle();if(error)throw error;
+  ctrl=data?{status:data.status,responsavelNome:data.responsavel_nome,observacao:data.observacao,finalizadoEm:ms(data.finalizado_em),finalizadoPor:data.finalizado_por}:null}
+async function loadPessoas(){const {data,error}=await sb.from("participantes").select("email,nome,papel,ativo");if(error)throw error;pessoas={};data.forEach(p=>pessoas[p.email]=p)}
+async function loadAcessos(){if(!isAdmin())return;const {data,error}=await sb.from("acessos").select("*").order("em",{ascending:false}).limit(5000);if(!error)acessos=data}
+async function refreshAll(){
+  try{await Promise.all([loadReqs(),loadRevs(),loadCtrl(),loadPessoas(),loadAcessos()]);banner("");afterData()}
+  catch(e){banner("Não foi possível carregar os dados: "+errMsg(e))}
+}
+function afterData(){
+  render();renderAudit();
+  if(sel&&$("#overlay").classList.contains("open")){
+    const r=byId(sel);
+    if(!r){toast("Este requisito foi excluído por outra pessoa.");closeModal();return}
+    renderHist(sel);
+    if(!finalized()&&loadedRev!==null&&r.rev!==loadedRev&&!$("#f-lock").textContent){
+      const c=$("#f-conflict");c.textContent="Atenção: "+who(r.atualizadoPor)+" salvou este requisito ("+rv(r.rev)+") enquanto você estava com ele aberto. Se você salvar agora, o banco vai recusar para não sobrescrever. Copie o que escreveu, feche e abra de novo.";c.classList.remove("hidden");
+    }
+  }
+  if($("#ov-fin").classList.contains("open")){if(finalized())closeOv("#ov-fin");else refreshFin()}
+}
+let refreshQ=null;
+function scheduleRefresh(){clearTimeout(refreshQ);refreshQ=setTimeout(refreshAll,400)}
+function startLive(){
+  try{
+    channel=sb.channel("dosadora")
+      .on("postgres_changes",{event:"*",schema:"public",table:"requisitos"},scheduleRefresh)
+      .on("postgres_changes",{event:"*",schema:"public",table:"revisoes"},scheduleRefresh)
+      .on("postgres_changes",{event:"*",schema:"public",table:"levantamento"},scheduleRefresh)
+      .subscribe();
+  }catch(e){}
+  clearInterval(pollT);pollT=setInterval(()=>{if(!document.hidden)refreshAll()},60000);
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden)refreshAll()});
+}
+
+/* ---------- etapa ---------- */
+function renderStage(){
+  const done=finalized();
+  $("#stage").classList.toggle("done",done);
+  $("#st1").className="step "+(done?"ok":"cur");$("#st1 .dot").textContent=done?"✓":"1";
+  $("#st2").className="step "+(done?"ok":"");$("#st2 .dot").textContent=done?"✓":"2";
+  const info=$("#stage-info");info.textContent="";
+  if(done){
+    const s=document.createElement("strong");s.textContent="Levantamento finalizado";
+    info.append(s,document.createTextNode(" em "+fmt(ctrl.finalizadoEm)+" por "+(ctrl.responsavelNome||"—")+" (Engenharia – PT), conta "+who(ctrl.finalizadoPor)+". Requisitos bloqueados; só é possível vincular complementos."));
+    if(ctrl.observacao){const o=document.createElement("div");o.style.marginTop="4px";o.textContent="Obs.: "+ctrl.observacao;info.appendChild(o)}
+  }else{
+    const s=document.createElement("strong");s.textContent="Em levantamento";
+    info.append(s,document.createTextNode(" · "+revs.length+" revisões registradas. "+(canFinalize()?"Finalize quando todos os requisitos estiverem classificados, justificados e validados.":"Somente a Engenharia (PT) pode finalizar.")));
+  }
+  $("#fin-open").classList.toggle("hidden",done||!canFinalize());
+  $("#new").disabled=done;$("#new").title=done?"Levantamento finalizado: vincule um complemento a partir de um requisito":"";
+}
+
+/* ---------- lista ---------- */
+function card(r){
+  const d=DEC[r.decisao]||DEC.em_analise;
+  const el=document.createElement("article");el.className="item"+(sel===r.id?" sel":"")+(r.complementoDe?" comp":"");el.tabIndex=0;
+  const top=document.createElement("div");top.className="item-top";
+  const c=document.createElement("span");c.className="code";c.textContent=r.codigo||"";
+  const rvv=document.createElement("span");rvv.className="rev";rvv.textContent=rv(r.rev);
+  const ch=document.createElement("span");ch.className="chip "+d[1];ch.textContent=d[0];
+  const v=document.createElement("span");v.className="chip "+(VAL[r.validacao]||"c-neu");v.textContent=r.validacao||"Pendente";
+  top.append(c,rvv,ch,v);
+  if(r.complementoDe){const p=byId(r.complementoDe);const k=document.createElement("span");k.className="chip c-obr";k.textContent="Complementa "+(p?p.codigo:"requisito excluído");top.appendChild(k)}
+  if(finalized()){const l=document.createElement("span");l.className="chip c-ok";l.textContent="Bloqueado";top.appendChild(l)}
+  const cat=document.createElement("span");cat.className="code";cat.textContent="· "+(r.categoria||"");top.appendChild(cat);
+  const h=document.createElement("h3");h.textContent=r.titulo||"(sem título)";
+  const mn=document.createElement("p");mn.className="why";
+  const b1=document.createElement("strong");b1.textContent="Mínimo aceitável: ";mn.appendChild(b1);
+  if((r.minimo||"").trim()){mn.appendChild(document.createTextNode(r.minimo))}else{const s=document.createElement("span");s.className="missing";s.textContent="a levantar";mn.appendChild(s)}
+  const w=document.createElement("p");w.className="why";
+  const b2=document.createElement("strong");b2.textContent=r.decisao==="abrir_mao"?"Por que abrimos mão: ":r.decisao==="obrigatorio"?"Por que é obrigatório: ":"Justificativa: ";w.appendChild(b2);
+  const j=justif(r);
+  if((j||"").trim()){w.appendChild(document.createTextNode(j))}else{const s=document.createElement("span");s.className="missing";s.textContent="a levantar";w.appendChild(s)}
+  el.append(top,h,mn,w);
+  if(r.decisao==="abrir_mao"){
+    const m=document.createElement("p");m.className="why";
+    const mit=[...(r.mitigacao||[]),r.mitigOutro].filter(Boolean).join("; ");
+    m.textContent="Mitigação: "+(mit||"a levantar")+" · Risco assumido por: "+(r.donoRisco||"a levantar");
+    if(!mit||!r.donoRisco)m.classList.add("missing");
+    el.appendChild(m);
+  }
+  const p=document.createElement("p");p.className="why";p.style.fontSize="12px";
+  p.textContent="Sinal no CLP: "+(r.viabilidade||"A confirmar via OPC")+" · Responsável: "+([r.area,r.responsavel].filter(Boolean).join(" – ")||"a definir")+
+    (r.atualizadoEm?" · Atualizado em "+fmt(r.atualizadoEm)+" por "+(nm(r.atualizadoPor)||r.atualizadoPor||"—"):"");
+  el.appendChild(p);
+  el.onclick=()=>edit(r.id);el.onkeydown=e=>{if(e.key==="Enter")edit(r.id)};
+  return el;
+}
+function render(){
+  renderStage();
+  const q=$("#q").value.trim().toLowerCase(),fc=$("#fcat").value,fv=$("#fval").value;
+  $("#t-all").textContent=rows.length;
+  $("#t-obr").textContent=rows.filter(r=>r.decisao==="obrigatorio").length;
+  $("#t-mao").textContent=rows.filter(r=>r.decisao==="abrir_mao").length;
+  $("#t-ana").textContent=rows.filter(r=>r.decisao==="em_analise"||!r.decisao).length;
+  $("#t-pend").textContent=rows.filter(pending).length;
+  document.querySelectorAll(".tile").forEach(t=>t.classList.toggle("on",t.dataset.f===tileF&&tileF!==""));
+  const list=$("#list");list.innerHTML="";
+  const vis=rows.filter(r=>{
+    if(tileF==="pend"&&!pending(r))return false;
+    if(tileF&&tileF!=="pend"&&(r.decisao||"em_analise")!==tileF)return false;
+    if(fc&&r.categoria!==fc)return false;
+    if(fv&&(r.validacao||"Pendente")!==fv)return false;
+    if(q&&![r.codigo,r.titulo,r.descricao,r.minimo,r.porqueObr,r.porqueMao].join(" ").toLowerCase().includes(q))return false;
+    return true;
+  }).sort((a,b)=>sk(a.codigo)-sk(b.codigo));
+  if(!vis.length){const e=document.createElement("div");e.className="empty";e.textContent=rows.length?"Nenhum requisito com esses filtros.":"Nenhum requisito ainda. Use “+ Novo requisito”.";list.appendChild(e);return}
+  vis.forEach(r=>list.appendChild(card(r)));
+}
+
+/* ---------- janelas ---------- */
+let lastFocus=null;
+function openOv(id,focusSel){
+  lastFocus=document.activeElement;const o=$(id);o.classList.add("open");o.setAttribute("aria-hidden","false");
+  document.body.classList.add("modal-open");$("#app").classList.add("dim");
+  o.querySelector(".panel").scrollTop=0;if(focusSel)setTimeout(()=>{const f=$(focusSel);f&&!f.disabled&&f.focus()},60);
+}
+function closeOv(id){
+  const o=$(id);o.classList.remove("open");o.setAttribute("aria-hidden","true");
+  if(!document.querySelector(".overlay.open")){document.body.classList.remove("modal-open");$("#app").classList.remove("dim")}
+  if(lastFocus&&lastFocus.focus)lastFocus.focus();
+}
+function closeModal(){dirty=false;closeOv("#overlay");clearForm()}
+function requestClose(){
+  if(!dirty){closeModal();return}
+  if(Date.now()-discardArmed<5000){closeModal();return}
+  discardArmed=Date.now();toast("Há alterações não salvas. Clique de novo em Cancelar ou × para descartar.");
+}
+$("#close").onclick=requestClose;$("#cancel").onclick=requestClose;
+$("#form").addEventListener("input",e=>{if(e.target.id!=="c-motivo")dirty=true});
+$("#form").addEventListener("change",e=>{if(e.target.id!=="c-motivo")dirty=true});
+$("#overlay").addEventListener("mousedown",e=>{if(e.target.id==="overlay")requestClose()});
+$("#ov-fin").addEventListener("mousedown",e=>{if(e.target.id==="ov-fin")closeOv("#ov-fin")});
+document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if($("#ov-fin").classList.contains("open"))closeOv("#ov-fin");else if($("#overlay").classList.contains("open"))requestClose()});
+window.addEventListener("beforeunload",e=>{if(dirty&&$("#overlay").classList.contains("open")){e.preventDefault();e.returnValue=""}});
+
+/* ---------- formulário ---------- */
+function setDec(v){
+  document.querySelectorAll('input[name=decisao]').forEach(i=>i.checked=i.value===v);
+  $("#g-obr").classList.toggle("hidden",v!=="obrigatorio");
+  $("#g-mao").classList.toggle("hidden",v!=="abrir_mao");
+}
+document.querySelectorAll('input[name=decisao]').forEach(i=>i.onchange=()=>setDec(i.value));
+function setLocked(lock){$("#form").querySelectorAll("input,select,textarea").forEach(e=>e.disabled=lock)}
+function clearForm(){
+  sel=null;parentFor=null;loadedRev=null;dirty=false;$("#form").reset();setDec("em_analise");setLocked(false);
+  document.querySelectorAll(".f.invalid").forEach(f=>f.classList.remove("invalid"));
+  $("#f-mode").textContent="Novo requisito";$("#f-title").textContent="Preencha o requisito";
+  ["#del","#add-comp","#hist","#g-motivo","#f-lock","#f-link","#f-conflict"].forEach(s=>$(s).classList.add("hidden"));
+  $("#f-lock").textContent="";
+  $("#save").classList.remove("hidden");$("#save").textContent="Salvar";$("#cancel").textContent="Cancelar";
+  $("#confirm").style.display="none";$("#f-meta").textContent="";$("#c-motivo").value="";render();
+}
+function loadFields(r){
+  ["titulo","categoria","origem","descricao","viabilidade","minimo","porqueObr","impacto","porqueMao","mitigOutro","donoRisco","tratamento","area","responsavel","validacao","comentario"]
+    .forEach(k=>{const e=$("#"+k);if(e)e.value=r[k]??(e.tagName==="SELECT"?e.options[0].value:"")});
+  document.querySelectorAll("#mitig input").forEach(c=>c.checked=(r.mitigacao||[]).includes(c.value));
+  setDec(r.decisao||"em_analise");
+}
+function edit(id){
+  const r=byId(id);if(!r)return;
+  clearForm();sel=id;loadFields(r);loadedRev=r.rev;
+  const lock=finalized();
+  $("#f-mode").textContent=(lock?"Consulta · ":"Editando · ")+(r.codigo||"")+" · "+rv(r.rev);
+  $("#f-title").textContent=r.titulo||"";
+  if(r.complementoDe){const p=byId(r.complementoDe);$("#f-link").textContent="Complemento vinculado a "+(p?p.codigo+" – "+p.titulo:"requisito excluído")+".";$("#f-link").classList.remove("hidden")}
+  if(lock){
+    setLocked(true);
+    $("#f-lock").textContent="Levantamento finalizado em "+fmt(ctrl.finalizadoEm)+". Este requisito não pode ser editado nem excluído.";
+    $("#f-lock").classList.remove("hidden");$("#save").classList.add("hidden");$("#cancel").textContent="Fechar";
+  }else{
+    $("#g-motivo").classList.remove("hidden");$("#del").classList.remove("hidden");
+  }
+  if(!r.complementoDe)$("#add-comp").classList.remove("hidden");
+  const a=[];if(r.criadoEm)a.push("Criado em "+fmt(r.criadoEm)+" por "+who(r.criadoPor));
+  if(r.atualizadoEm)a.push("Última atualização em "+fmt(r.atualizadoEm)+" por "+who(r.atualizadoPor));
+  $("#f-meta").textContent=a.join(" · ");
+  renderHist(id);render();
+  if(!$("#overlay").classList.contains("open"))openOv("#overlay",lock?"#close":"#titulo");
+}
+function newComplement(pid){
+  const p=byId(pid);if(!p)return;
+  clearForm();parentFor=pid;
+  $("#f-mode").textContent="Novo complemento";$("#f-title").textContent="Complemento de "+p.codigo;
+  $("#f-link").textContent="Vinculado a "+p.codigo+" – "+p.titulo+".";$("#f-link").classList.remove("hidden");
+  $("#categoria").value=p.categoria||CATS[0];$("#origem").value="Complemento de "+p.codigo;
+  if(finalized()){$("#f-lock").textContent="Levantamento finalizado: depois de salvo, este complemento não poderá ser editado nem excluído.";$("#f-lock").classList.remove("hidden")}
+  $("#save").textContent="Salvar complemento";
+  if(!$("#overlay").classList.contains("open"))openOv("#overlay","#titulo");else{$("#panel").scrollTop=0;$("#titulo").focus()}
+}
+$("#add-comp").onclick=()=>{const pid=sel;if(pid)newComplement(pid)};
+
+function collect(){
+  const g=k=>($("#"+k).value||"").trim();
+  const dec=(document.querySelector('input[name=decisao]:checked')||{}).value||"em_analise";
+  const mao=dec==="abrir_mao",obr=dec==="obrigatorio";
+  return{titulo:g("titulo"),categoria:g("categoria"),origem:g("origem"),descricao:g("descricao"),viabilidade:g("viabilidade"),
+    minimo:g("minimo"),decisao:dec,
+    porqueObr:obr?g("porqueObr"):"",impacto:obr?g("impacto"):"",porqueMao:mao?g("porqueMao"):"",
+    mitigacao:mao?[...document.querySelectorAll("#mitig input:checked")].map(c=>c.value):[],mitigOutro:mao?g("mitigOutro"):"",
+    donoRisco:mao?g("donoRisco"):"",tratamento:mao?g("tratamento"):"",area:g("area"),responsavel:g("responsavel"),
+    validacao:g("validacao")||"Pendente",comentario:g("comentario")};
+}
+function validate(d,needMotivo){
+  const bad=[];
+  if(!d.titulo)bad.push("titulo");
+  if(d.decisao!=="em_analise"&&!d.minimo)bad.push("minimo");
+  if(d.decisao==="obrigatorio"&&!d.porqueObr)bad.push("porqueObr");
+  if(d.decisao==="abrir_mao"){if(!d.porqueMao)bad.push("porqueMao");if(!d.mitigacao.length&&!d.mitigOutro)bad.push("mitig");if(!d.donoRisco)bad.push("donoRisco")}
+  if(needMotivo&&!$("#motivo").value.trim())bad.push("motivo");
+  document.querySelectorAll("#form .f[data-k]").forEach(f=>{if(f.dataset.k!=="cmotivo")f.classList.toggle("invalid",bad.includes(f.dataset.k))});
+  return bad;
+}
+function sameAs(old,d){const a=toDb(old),b=toDb(d);return Object.keys(a).every(k=>JSON.stringify(a[k]??null)===JSON.stringify(b[k]??null))}
+
+$("#form").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const isEdit=!!sel,isComp=!!parentFor;
+  if(isEdit&&finalized()){toast("Levantamento finalizado: este requisito não pode ser editado.");return}
+  if(!isEdit&&!isComp&&finalized()){toast("Levantamento finalizado: só é possível vincular complementos.");return}
+  const d=collect();const bad=validate(d,isEdit);
+  if(bad.length){toast("Complete os campos destacados.");const f=document.querySelector("#form .f.invalid");f&&f.scrollIntoView({behavior:"smooth",block:"center"});return}
+  const payload=toDb(d);
+  $("#save").disabled=true;
+  try{
+    if(isEdit){
+      const old=byId(sel);
+      if(old&&sameAs(old,d)){toast("Nenhuma alteração para registrar.");return}
+      payload.motivo_revisao=$("#motivo").value.trim();
+      const {data,error}=await sb.from("requisitos").update(payload).eq("id",sel).eq("rev",loadedRev).select("codigo,rev");
+      if(error)throw error;
+      if(!data||!data.length){
+        await refreshAll();
+        const cur=byId(sel);
+        const c=$("#f-conflict");
+        c.textContent=finalized()?"O levantamento foi finalizado enquanto você editava. Nada foi salvo.":
+          cur?("Outra pessoa salvou este requisito ("+rv(cur.rev)+", por "+who(cur.atualizadoPor)+") enquanto você editava. Para não sobrescrever o trabalho dela, sua versão não foi salva. Copie o que escreveu, feche e abra o requisito de novo."):
+          "Este requisito foi excluído por outra pessoa. Nada foi salvo.";
+        c.classList.remove("hidden");$("#panel").scrollTop=0;toast("Nada foi sobrescrito.");return;
+      }
+      toast(data[0].codigo+" salvo · "+rv(data[0].rev)+".");
+    }else{
+      if(isComp)payload.complemento_de=parentFor;
+      const {data,error}=await sb.from("requisitos").insert(payload).select("codigo,rev");
+      if(error)throw error;
+      toast((data&&data[0]?data[0].codigo:"Requisito")+" salvo · "+rv(1)+".");
+    }
+    closeModal();await refreshAll();
+  }catch(err){toast("Não foi possível salvar: "+errMsg(err))}
+  finally{$("#save").disabled=false}
+});
+
+$("#del").onclick=()=>{
+  const r=byId(sel);if(!r)return;
+  if(finalized()){toast("Levantamento finalizado: exclusão bloqueada.");return}
+  if(kids(r.id).length){toast("Exclua antes os complementos vinculados a "+r.codigo+".");return}
+  $("#c-code").textContent=r.codigo||"";$("#confirm").style.display="block";$("#c-motivo").focus();
+};
+$("#c-no").onclick=()=>$("#confirm").style.display="none";
+$("#c-yes").onclick=async()=>{
+  const r=byId(sel);if(!r)return;
+  const m=$("#c-motivo").value.trim();const f=$("#confirm .f");f.classList.toggle("invalid",!m);if(!m)return;
+  $("#c-yes").disabled=true;
+  try{
+    const {error}=await sb.rpc("excluir_requisito",{p_id:r.id,p_motivo:m,p_rev:loadedRev});
+    if(error)throw error;
+    toast(r.codigo+" excluído. O conteúdo fica guardado no histórico.");closeModal();await refreshAll();
+  }catch(e){toast(errMsg(e))}
+  finally{$("#c-yes").disabled=false}
+};
+
+/* ---------- histórico ---------- */
+const showVal=(k,v)=>{if(v==null||v==="")return"(vazio)";if(k==="decisao")return(DEC[v]||[v])[0];if(Array.isArray(v))return v.length?v.join("; "):"(vazio)";return String(v)};
+function renderHist(id){
+  const box=$("#hist-list");box.innerHTML="";
+  const list=revs.filter(x=>x.reqId===id).sort((a,b)=>((b.rev||0)-(a.rev||0))||((b.em||0)-(a.em||0)));
+  $("#hist").classList.remove("hidden");
+  if(!list.length){const e=document.createElement("div");e.className="note";e.textContent="Sem revisões registradas para este requisito.";box.appendChild(e);return}
+  list.forEach(x=>{
+    const row=document.createElement("div");row.className="hrow";
+    const hh=document.createElement("div");hh.className="hh";
+    const b=document.createElement("span");b.className="rev";b.textContent=rv(x.rev);
+    const t=document.createElement("strong");t.textContent=x.tipo||"";t.style.color="var(--foreground)";
+    const w=document.createElement("span");w.textContent=fmt(x.em)+" · "+who(x.por);
+    hh.append(b,t,w);row.appendChild(hh);
+    if(x.motivo){const m=document.createElement("div");m.className="hm";m.textContent=x.motivo;row.appendChild(m)}
+    if((x.alteracoes||[]).length){
+      const ul=document.createElement("ul");const cut=s=>s.length>140?s.slice(0,140)+"…":s;
+      x.alteracoes.forEach(a=>{const li=document.createElement("li");
+        const l=document.createElement("strong");l.textContent=(LABELS[a.campo]||a.campo)+": ";
+        const de=document.createElement("span");de.className="de";de.textContent=cut(showVal(a.campo,a.de));
+        li.append(l,de,document.createTextNode(" → "+cut(showVal(a.campo,a.para))));ul.appendChild(li)});
+      row.appendChild(ul);
+    }
+    box.appendChild(row);
+  });
+}
+
+/* ---------- término do levantamento ---------- */
+function preconds(){
+  const n=rows.length;
+  const ana=rows.filter(r=>r.decisao==="em_analise"||!r.decisao).length;
+  const pend=rows.filter(r=>r.decisao&&r.decisao!=="em_analise"&&pending(r)).length;
+  const nv=rows.filter(r=>(r.validacao||"Pendente")!=="Validado").length;
+  return[
+    [n>0,"Há requisitos registrados ("+n+")"],
+    [ana===0,ana?ana+" requisito(s) ainda em análise":"Todos os requisitos estão classificados"],
+    [pend===0,pend?pend+" requisito(s) sem mínimo aceitável, justificativa ou mitigação":"Todos têm mínimo aceitável e justificativa"],
+    [nv===0,nv?nv+" requisito(s) sem validação (Pendente ou Contestado)":"Todos os requisitos estão validados"]
+  ];
+}
+function refreshFin(){
+  const box=$("#fin-pre");box.innerHTML="";const pc=preconds();
+  pc.forEach(([ok,txt])=>{const d=document.createElement("div");d.className="pi "+(ok?"ok":"no");
+    const m=document.createElement("span");m.className="mk";m.textContent=ok?"✓":"!";const s=document.createElement("span");s.textContent=txt;d.append(m,s);box.appendChild(d)});
+  const all=pc.every(p=>p[0]);
+  $("#fin-go").disabled=!(all&&$("#fin-ok").checked&&$("#fin-nome").value.trim());
+  return all;
+}
+$("#fin-open").onclick=()=>{if(finalized()||!canFinalize())return;$("#fin-ok").checked=false;$("#fin-nome").value=nm(me.email)||"";refreshFin();openOv("#ov-fin","#fin-nome")};
+$("#fin-close").onclick=()=>closeOv("#ov-fin");$("#fin-cancel").onclick=()=>closeOv("#ov-fin");
+["#fin-ok","#fin-nome"].forEach(s=>{$(s).addEventListener("input",refreshFin);$(s).addEventListener("change",refreshFin)});
+$("#fin-go").onclick=async()=>{
+  if(finalized()||!refreshFin())return;
+  const nome=$("#fin-nome").value.trim();if(!nome)return;
+  $("#fin-go").disabled=true;
+  try{
+    const {error}=await sb.rpc("finalizar_levantamento",{p_nome:nome,p_obs:$("#fin-obs").value.trim()||null});
+    if(error)throw error;
+    closeOv("#ov-fin");toast("Levantamento finalizado. Requisitos bloqueados.");await refreshAll();
+  }catch(e){toast(errMsg(e));$("#fin-go").disabled=false}
+};
+
+/* ---------- auditoria e backup (admin) ---------- */
+const tdText=(tr,txt,cls)=>{const td=document.createElement("td");if(cls)td.className=cls;td.textContent=txt;tr.appendChild(td);return td};
+function tdWho(tr,email,fallback){const td=document.createElement("td");
+  if(!email){td.textContent=fallback||"—"}else{td.textContent=nm(email)||email;if(nm(email)){const s=document.createElement("span");s.className="em";s.textContent=email;td.appendChild(s)}}
+  tr.appendChild(td)}
+function renderAudit(){
+  if(!isAdmin()){$("#audit").classList.add("hidden");return}
+  $("#audit").classList.remove("hidden");$("#bk-json").classList.remove("hidden");$("#bk-csv").classList.remove("hidden");
+  const ab=$("#atv-body");ab.innerHTML="";
+  const atv=[...revs].sort((a,b)=>(b.em||0)-(a.em||0));
+  if(!atv.length){const tr=document.createElement("tr");tdText(tr,"Nenhuma atividade registrada.").colSpan=5;ab.appendChild(tr)}
+  atv.forEach(x=>{const tr=document.createElement("tr");
+    tdText(tr,fmt(x.em),"nw");tdWho(tr,x.por);tdText(tr,x.tipo||"");
+    tdText(tr,(x.codigo||"")+(x.rev?" · "+rv(x.rev):""),"nw");
+    const det=[x.motivo,(x.alteracoes||[]).length?"Campos: "+x.alteracoes.map(a=>LABELS[a.campo]||a.campo).join(", "):""].filter(Boolean).join(" · ");
+    tdText(tr,det);ab.appendChild(tr)});
+  const agg={};acessos.forEach(a=>{const g=agg[a.email]||(agg[a.email]={email:a.email,primeiro:a.em,ultimo:a.em,visitas:0,negado:!a.autorizado});
+    g.visitas++;if(a.em<g.primeiro)g.primeiro=a.em;if(a.em>g.ultimo)g.ultimo=a.em;if(a.autorizado)g.negado=false});
+  const cb=$("#acs-body");cb.innerHTML="";
+  const ac=Object.values(agg).sort((a,b)=>Date.parse(b.ultimo)-Date.parse(a.ultimo));
+  if(!ac.length){const tr=document.createElement("tr");tdText(tr,"Nenhum acesso registrado.").colSpan=4;cb.appendChild(tr)}
+  ac.forEach(a=>{const tr=document.createElement("tr");tdWho(tr,a.email);if(a.negado){const s=document.createElement("span");s.className="em missing";s.textContent="não autorizado";tr.lastChild.appendChild(s)}
+    tdText(tr,fmt(ms(a.primeiro)),"nw");tdText(tr,fmt(ms(a.ultimo)),"nw");tdText(tr,String(a.visitas));cb.appendChild(tr)});
+}
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{auditTab=b.dataset.tab;
+  document.querySelectorAll(".tabs button").forEach(x=>x.classList.toggle("on",x===b));
+  $("#tab-atv").classList.toggle("hidden",auditTab!=="atv");$("#tab-acs").classList.toggle("hidden",auditTab!=="acs")});
+const stamp=()=>{const d=new Date(),p=n=>String(n).padStart(2,"0");return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"_"+p(d.getHours())+p(d.getMinutes())};
+function saveFile(filename,data,type){
+  try{const url=URL.createObjectURL(new Blob([data],{type}));const a=document.createElement("a");a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);toast("Arquivo gerado: "+filename)}
+  catch(e){toast("Não foi possível gerar o arquivo.")}
+}
+$("#bk-json").onclick=async()=>{
+  await refreshAll();
+  const out={geradoEm:new Date().toISOString(),geradoPor:me.email,projeto:"Dosadora de Químicos – Requisitos mínimos aceitáveis",
+    levantamento:ctrl,requisitos:rows,revisoes:revs,acessos,participantes:Object.values(pessoas)};
+  saveFile("dosadora-requisitos-backup_"+stamp()+".json",JSON.stringify(out,null,2),"application/json");
+};
+$("#bk-csv").onclick=()=>{
+  const q=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
+  const head=["Código","Rev.","Complementa","Requisito","Categoria","Origem","Descrição","Sinal no CLP","Mínimo aceitável","Classificação","Por que é obrigatório","Impacto","Por que abrimos mão","Mitigação","Risco assumido por","Tratar depois como","Área","Responsável","Validação","Comentário","Criado em","Criado por","Atualizado em","Atualizado por"];
+  const lines=[...rows].sort((a,b)=>sk(a.codigo)-sk(b.codigo)).map(r=>[r.codigo,r.rev,r.complementoDe?(byId(r.complementoDe)||{}).codigo:"",r.titulo,r.categoria,r.origem,r.descricao,r.viabilidade,r.minimo,(DEC[r.decisao]||DEC.em_analise)[0],
+    r.porqueObr,r.impacto,r.porqueMao,[...(r.mitigacao||[]),r.mitigOutro].filter(Boolean).join("; "),r.donoRisco,r.tratamento,r.area,r.responsavel,r.validacao,r.comentario,
+    fmt(r.criadoEm),who(r.criadoPor),fmt(r.atualizadoEm),who(r.atualizadoPor)].map(q).join(";"));
+  saveFile("dosadora-requisitos_"+stamp()+".csv","﻿"+[head.map(q).join(";"),...lines].join("\r\n"),"text/csv;charset=utf-8");
+};
+
+/* ---------- filtros e cópia ---------- */
+["#q","#fcat","#fval"].forEach(s=>$(s).addEventListener("input",render));
+document.querySelectorAll(".tile").forEach(t=>t.onclick=()=>{tileF=(tileF===t.dataset.f)?"":t.dataset.f;render()});
+$("#new").onclick=()=>{if(finalized())return;clearForm();openOv("#overlay","#titulo")};
+$("#copy").onclick=async()=>{
+  const esc=s=>String(s||"").replace(/\|/g,"/").replace(/\n/g," ");
+  const st=finalized()?"Levantamento finalizado em "+fmt(ctrl.finalizadoEm)+" por "+ctrl.responsavelNome+" (Engenharia – PT)\n\n":"Levantamento em andamento\n\n";
+  const head="| Código | Rev. | Complementa | Requisito | Categoria | Classificação | Mínimo aceitável | Justificativa | Mitigação | Risco assumido por | Validação |\n|---|---|---|---|---|---|---|---|---|---|---|\n";
+  const body=[...rows].sort((a,b)=>sk(a.codigo)-sk(b.codigo)).map(r=>"| "+[r.codigo,String(r.rev||0).padStart(2,"0"),r.complementoDe?(byId(r.complementoDe)||{}).codigo||"—":"—",r.titulo,r.categoria,(DEC[r.decisao]||DEC.em_analise)[0],r.minimo||"a levantar",justif(r)||"a levantar",
+    r.decisao==="abrir_mao"?[...(r.mitigacao||[]),r.mitigOutro].filter(Boolean).join("; ")||"a levantar":"—",r.decisao==="abrir_mao"?r.donoRisco||"a levantar":"—",r.validacao||"Pendente"].map(esc).join(" | ")+" |").join("\n");
+  try{await navigator.clipboard.writeText(st+head+body);toast("Tabela copiada (Markdown).")}catch(e){toast("O navegador bloqueou a cópia.")}
+};
+
+/* ---------- login por código ---------- */
+function gateStep(n){["#g-step1","#g-step2","#g-denied"].forEach((s,i)=>$(s).classList.toggle("hidden",i!==n))}
+function gateMsg(id,txt,kind){const m=$(id);m.textContent=txt||"";m.className="msg"+(kind?" "+kind:"")}
+function showGate(){$("#app").classList.add("hidden");$("#gate").classList.remove("hidden");gateStep(0);setTimeout(()=>$("#g-email").focus(),50)}
+let pendingEmail="";
+async function sendCode(){
+  const email=$("#g-email").value.trim().toLowerCase();
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){gateMsg("#g-msg1","Informe um e-mail válido.","err");return}
+  $("#g-send").disabled=true;gateMsg("#g-msg1","Enviando…");
+  const {error}=await sb.auth.signInWithOtp({email,options:{shouldCreateUser:true,emailRedirectTo:location.href.split('#')[0].split('?')[0]}});
+  $("#g-send").disabled=false;
+  if(error){gateMsg("#g-msg1",/rate|seconds/i.test(error.message)?"Aguarde alguns segundos antes de pedir outro código.":"Não foi possível enviar o código: "+error.message,"err");return}
+  pendingEmail=email;$("#g-to").textContent=email;gateMsg("#g-msg1","");gateMsg("#g-msg2","");$("#g-code").value="";gateStep(1);setTimeout(()=>$("#g-code").focus(),50);
+}
+$("#g-form1").addEventListener("submit",e=>{e.preventDefault();sendCode()});
+$("#g-resend").onclick=async()=>{$("#g-email").value=pendingEmail;await sendCode();gateMsg("#g-msg2","Novo código enviado.","ok")};
+$("#g-back").onclick=()=>{gateStep(0);$("#g-email").focus()};
+$("#g-form2").addEventListener("submit",async e=>{
+  e.preventDefault();const token=$("#g-code").value.replace(/\D/g,"");
+  if(token.length<6){gateMsg("#g-msg2","Digite o código recebido por e-mail.","err");return}
+  $("#g-verify").disabled=true;gateMsg("#g-msg2","Verificando…");
+  const {data,error}=await sb.auth.verifyOtp({email:pendingEmail,token,type:"email"});
+  $("#g-verify").disabled=false;
+  if(error){gateMsg("#g-msg2","Código inválido ou expirado. Confira ou peça um novo.","err");return}
+  gateMsg("#g-msg2","");await enter(data.session);
+});
+async function signOut(){try{if(channel)sb.removeChannel(channel)}catch(e){}clearInterval(pollT);await sb.auth.signOut();rows=[];revs=[];me={email:"",papel:null};showGate()}
+$("#g-out").onclick=signOut;
+$("#u-out").onclick=()=>{if(dirty&&$("#overlay").classList.contains("open")&&!confirmLeave())return;signOut()};
+function confirmLeave(){if(Date.now()-discardArmed<5000)return true;discardArmed=Date.now();toast("Há alterações não salvas. Clique de novo em Sair para descartar.");return false}
+
+async function enter(session){
+  me.email=((session&&session.user&&session.user.email)||"").toLowerCase();
+  const {data:papel,error}=await sb.rpc("registrar_acesso",{p_agente:navigator.userAgent});
+  if(error){$("#gate").classList.remove("hidden");gateStep(0);gateMsg("#g-msg1","Não foi possível validar o acesso: "+errMsg(error),"err");return}
+  if(!papel){$("#g-denied-email").textContent=me.email;$("#gate").classList.remove("hidden");$("#app").classList.add("hidden");gateStep(2);return}
+  me.papel=papel;
+  $("#gate").classList.add("hidden");$("#app").classList.remove("hidden");
+  await refreshAll();
+  $("#u-name").textContent=nm(me.email)||me.email;$("#u-email").textContent=nm(me.email)?"("+me.email+")":"";$("#u-role").textContent=PAPEL[papel]||papel;
+  startLive();
+}
+
+/* ---------- início ---------- */
+(async()=>{
+  if(!window.supabase||/COLE_AQUI/.test(SUPABASE_URL+SUPABASE_ANON_KEY)){
+    $("#gate").classList.remove("hidden");
+    gateMsg("#g-cfg",!window.supabase?"Não foi possível carregar a biblioteca do Supabase. Verifique a conexão com a internet ou se a rede bloqueia cdn.jsdelivr.net.":
+      "Página ainda não configurada: preencha SUPABASE_URL e SUPABASE_ANON_KEY no início do script.","err");
+    $("#g-send").disabled=true;return;
+  }
+  sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
+  const {data}=await sb.auth.getSession();
+  if(data&&data.session)await enter(data.session);else showGate();
+  sb.auth.onAuthStateChange((ev)=>{if(ev==="SIGNED_OUT")showGate()});
+})();
+</script>
+</body>
+</html>
