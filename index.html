@@ -182,12 +182,15 @@
     <h1 style="margin-top:8px">Requisitos mínimos aceitáveis</h1>
     <div class="bar"></div>
     <div id="g-step1">
-      <p>Informe seu e-mail corporativo. Vamos enviar um código de acesso.</p>
+      <p>Entre com seu e-mail corporativo e a senha recebida do responsável pelo projeto.</p>
       <form id="g-form1" novalidate>
         <div class="f"><label class="label" for="g-email">E-mail</label>
-          <input id="g-email" type="email" autocomplete="email" placeholder="nome.sobrenome@empresa.com.br" required></div>
-        <button class="btn-primary" type="submit" id="g-send">Enviar código</button>
+          <input id="g-email" type="email" autocomplete="username" placeholder="nome.sobrenome@empresa.com.br" required></div>
+        <div class="f"><label class="label" for="g-pass">Senha</label>
+          <input id="g-pass" type="password" autocomplete="current-password" required></div>
+        <button class="btn-primary" type="submit" id="g-send">Entrar</button>
         <div class="msg" id="g-msg1" role="status"></div>
+        <button class="btn-ghost" type="button" id="g-link" style="height:auto;min-height:36px;padding:8px 12px;white-space:normal;text-align:left">Primeiro acesso sem senha ou esqueceu a senha? Receber link de acesso por e-mail</button>
       </form>
     </div>
     <div id="g-step2" class="hidden">
@@ -216,6 +219,7 @@
   <div class="userbar">
     <span>Conectado como <strong id="u-name"></strong> <span id="u-email"></span></span>
     <span class="role" id="u-role"></span>
+    <button class="btn-ghost" id="u-pwd">Alterar senha</button>
     <button class="btn-ghost" id="u-out">Sair</button>
   </div>
   <header>
@@ -454,6 +458,36 @@
   </div>
 </div>
 
+<!-- Definir / alterar senha -->
+<div class="overlay" id="ov-pwd" aria-hidden="true">
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="pwd-title" style="max-width:440px">
+    <div class="panel-head">
+      <div>
+        <div class="label" id="pwd-kicker">Segurança da conta</div>
+        <h2 id="pwd-title" style="margin-top:4px">Crie sua senha</h2>
+      </div>
+      <button type="button" class="x" id="pwd-close" aria-label="Fechar">×</button>
+    </div>
+    <div class="callout warn" id="pwd-info">No primeiro acesso, troque a senha que você recebeu por uma senha só sua. Ninguém mais, nem o administrador, fica sabendo dela.</div>
+    <form id="pwd-form" novalidate>
+      <fieldset>
+        <div class="f" data-k="p1"><label class="label req" for="pwd-1">Nova senha</label>
+          <input id="pwd-1" type="password" autocomplete="new-password">
+          <span class="hint">Mínimo de 10 caracteres, com letras e números.</span>
+          <div class="err" id="pwd-err1">A senha precisa ter pelo menos 10 caracteres, com letras e números.</div></div>
+        <div class="f" data-k="p2"><label class="label req" for="pwd-2">Repita a nova senha</label>
+          <input id="pwd-2" type="password" autocomplete="new-password">
+          <div class="err">As senhas não conferem.</div></div>
+      </fieldset>
+      <div class="actions">
+        <button type="submit" class="btn-primary" id="pwd-save">Salvar senha</button>
+        <button type="button" class="btn-ghost" id="pwd-out">Sair</button>
+      </div>
+      <div class="note" id="pwd-msg" role="status"></div>
+    </form>
+  </div>
+</div>
+
 <div class="toast" id="toast" role="status"></div>
 
 <script>
@@ -654,7 +688,7 @@ $("#form").addEventListener("input",e=>{if(e.target.id!=="c-motivo")dirty=true})
 $("#form").addEventListener("change",e=>{if(e.target.id!=="c-motivo")dirty=true});
 $("#overlay").addEventListener("mousedown",e=>{if(e.target.id==="overlay")requestClose()});
 $("#ov-fin").addEventListener("mousedown",e=>{if(e.target.id==="ov-fin")closeOv("#ov-fin")});
-document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if($("#ov-fin").classList.contains("open"))closeOv("#ov-fin");else if($("#overlay").classList.contains("open"))requestClose()});
+document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if($("#ov-pwd").classList.contains("open")){if(!pwdForced)closeOv("#ov-pwd");return}if($("#ov-fin").classList.contains("open"))closeOv("#ov-fin");else if($("#overlay").classList.contains("open"))requestClose()});
 window.addEventListener("beforeunload",e=>{if(dirty&&$("#overlay").classList.contains("open")){e.preventDefault();e.returnValue=""}});
 
 /* ---------- formulário ---------- */
@@ -923,12 +957,22 @@ async function sendCode(){
   const email=$("#g-email").value.trim().toLowerCase();
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){gateMsg("#g-msg1","Informe um e-mail válido.","err");return}
   $("#g-send").disabled=true;gateMsg("#g-msg1","Enviando…");
-  const {error}=await sb.auth.signInWithOtp({email,options:{shouldCreateUser:true,emailRedirectTo:location.href.split('#')[0].split('?')[0]}});
+  const {error}=await sb.auth.signInWithOtp({email,options:{shouldCreateUser:false,emailRedirectTo:location.href.split('#')[0].split('?')[0]}});
   $("#g-send").disabled=false;
-  if(error){gateMsg("#g-msg1",/rate|seconds/i.test(error.message)?"Aguarde alguns segundos antes de pedir outro código.":"Não foi possível enviar o código: "+error.message,"err");return}
+  if(error){gateMsg("#g-msg1",/rate|seconds/i.test(error.message)?"Aguarde alguns segundos antes de pedir outro link.":/signup|not allowed|not found/i.test(error.message)?"Este e-mail não está cadastrado. Fale com o responsável pelo projeto na TI.":"Não foi possível enviar o link: "+error.message,"err");return}
   pendingEmail=email;$("#g-to").textContent=email;gateMsg("#g-msg1","");gateMsg("#g-msg2","");$("#g-code").value="";gateStep(1);setTimeout(()=>$("#g-code").focus(),50);
 }
-$("#g-form1").addEventListener("submit",e=>{e.preventDefault();sendCode()});
+$("#g-form1").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const email=$("#g-email").value.trim().toLowerCase(),password=$("#g-pass").value;
+  if(!email||!password){gateMsg("#g-msg1","Informe e-mail e senha.","err");return}
+  $("#g-send").disabled=true;gateMsg("#g-msg1","Entrando…");
+  const {data,error}=await sb.auth.signInWithPassword({email,password});
+  $("#g-send").disabled=false;$("#g-pass").value="";
+  if(error){gateMsg("#g-msg1",/invalid/i.test(error.message)?"E-mail ou senha incorretos.":/confirm/i.test(error.message)?"Conta ainda não confirmada. Fale com o responsável pelo projeto na TI.":"Não foi possível entrar: "+error.message,"err");return}
+  gateMsg("#g-msg1","");await enter(data.session);
+});
+$("#g-link").onclick=()=>sendCode();
 $("#g-resend").onclick=async()=>{$("#g-email").value=pendingEmail;await sendCode();gateMsg("#g-msg2","Novo código enviado.","ok")};
 $("#g-back").onclick=()=>{gateStep(0);$("#g-email").focus()};
 $("#g-form2").addEventListener("submit",async e=>{
@@ -955,7 +999,35 @@ async function enter(session){
   await refreshAll();
   $("#u-name").textContent=nm(me.email)||me.email;$("#u-email").textContent=nm(me.email)?"("+me.email+")":"";$("#u-role").textContent=PAPEL[papel]||papel;
   startLive();
+  const meta=(session&&session.user&&session.user.user_metadata)||{};
+  if(!meta.senha_definida)openPwd(true);
 }
+
+/* ---------- senha ---------- */
+let pwdForced=false;
+function openPwd(forced){
+  pwdForced=!!forced;$("#pwd-form").reset();$("#pwd-msg").textContent="";
+  document.querySelectorAll("#pwd-form .f").forEach(f=>f.classList.remove("invalid"));
+  $("#pwd-close").classList.toggle("hidden",pwdForced);$("#pwd-out").classList.toggle("hidden",!pwdForced);
+  $("#pwd-title").textContent=pwdForced?"Crie sua senha":"Alterar senha";
+  $("#pwd-info").classList.toggle("hidden",!pwdForced);
+  openOv("#ov-pwd","#pwd-1");
+}
+$("#u-pwd").onclick=()=>openPwd(false);
+$("#pwd-close").onclick=()=>{if(!pwdForced)closeOv("#ov-pwd")};
+$("#pwd-out").onclick=async()=>{closeOv("#ov-pwd");await signOut()};
+$("#ov-pwd").addEventListener("mousedown",e=>{if(e.target.id==="ov-pwd"&&!pwdForced)closeOv("#ov-pwd")});
+$("#pwd-form").addEventListener("submit",async e=>{
+  e.preventDefault();const p1=$("#pwd-1").value,p2=$("#pwd-2").value;
+  const ok1=p1.length>=10&&/[A-Za-z]/.test(p1)&&/\d/.test(p1),ok2=p1===p2;
+  $('#pwd-form .f[data-k="p1"]').classList.toggle("invalid",!ok1);$('#pwd-form .f[data-k="p2"]').classList.toggle("invalid",ok1&&!ok2);
+  if(!ok1||!ok2)return;
+  $("#pwd-save").disabled=true;$("#pwd-msg").textContent="Salvando…";
+  const {error}=await sb.auth.updateUser({password:p1,data:{senha_definida:true}});
+  $("#pwd-save").disabled=false;
+  if(error){$("#pwd-msg").textContent=/different|same/i.test(error.message)?"A nova senha precisa ser diferente da atual.":/reauth|nonce|recent/i.test(error.message)?"Por segurança, saia e entre de novo antes de trocar a senha.":"Não foi possível salvar: "+error.message;return}
+  $("#pwd-form").reset();pwdForced=false;closeOv("#ov-pwd");toast("Senha salva. Use-a nos próximos acessos.");
+});
 
 /* ---------- início ---------- */
 (async()=>{
