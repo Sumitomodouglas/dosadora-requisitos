@@ -965,9 +965,20 @@ async function enter(session){
       "Página ainda não configurada: preencha SUPABASE_URL e SUPABASE_ANON_KEY no início do script.","err");
     $("#g-send").disabled=true;return;
   }
+  /* Link de e-mail já usado ou expirado (ex.: aberto duas vezes, ou verificado pelo antivírus do e-mail):
+     a biblioteca apagaria a sessão válida de todas as abas. Por isso o erro é retirado do endereço
+     antes de a biblioteca ler, e a sessão que já existe é preservada. */
+  let linkErro="";
+  try{
+    const h=new URLSearchParams(location.hash.replace(/^#/,"")),q=new URLSearchParams(location.search);
+    const e=h.get("error")||q.get("error");
+    if(e){linkErro=h.get("error_code")||q.get("error_code")||e;history.replaceState(null,"",location.pathname)}
+  }catch(e){}
   sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
   const {data}=await sb.auth.getSession();
-  if(data&&data.session)await enter(data.session);else showGate();
+  if(location.hash&&/access_token|refresh_token/.test(location.hash))history.replaceState(null,"",location.pathname);
+  if(data&&data.session)await enter(data.session);
+  else{showGate();if(linkErro)gateMsg("#g-msg1","Este link de acesso já foi usado ou expirou. Se você já entrou em outra aba, use aquela aba. Senão, peça um novo código abaixo.","err")}
   sb.auth.onAuthStateChange((ev)=>{if(ev==="SIGNED_OUT")showGate()});
 })();
 </script>
